@@ -130,23 +130,49 @@ bot.command("status", async (ctx) => {
 });
 
 bot.command("settime", async (ctx) => {
-  ctx.reply("⏰ Chọn giờ bạn muốn nhận từ vựng mỗi ngày:", {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: "🌅 6:00 sáng", callback_data: "settime_6" },
-          { text: "☀️ 8:00 sáng", callback_data: "settime_8" },
-        ],
-        [
-          { text: "🕛 12:00 trưa", callback_data: "settime_12" },
-          { text: "🌇 18:00 tối", callback_data: "settime_18" },
-        ],
-        [
-          { text: "🌙 20:00 tối", callback_data: "settime_20" },
-          { text: "🌃 22:00 đêm", callback_data: "settime_22" },
-        ],
-      ],
-    },
+  const arg = ctx.message.text.split(" ")[1]; // Lấy phần số sau lệnh /settime
+
+  if (arg !== undefined) {
+    const hour = parseInt(arg, 10);
+    // Kiểm tra tính hợp lệ (0-23)
+    if (!isNaN(hour) && hour >= 0 && hour <= 23) {
+      try {
+        const chatId = ctx.chat.id;
+        const userSnap = await db
+          .collection("users")
+          .where("telegramChatId", "==", chatId)
+          .get();
+
+        if (userSnap.empty)
+          return ctx.reply("❌ Lỗi: Bạn cần /link <uid> trước.");
+
+        await db
+          .collection("users")
+          .doc(userSnap.docs[0].id)
+          .update({ sendHour: hour });
+        return ctx.reply(
+          `✅ Đã đặt giờ nhận từ vựng thành công lúc *${hour}:00* hàng ngày.`,
+          { parse_mode: "Markdown" },
+        );
+      } catch (err) {
+        return ctx.reply("❌ Có lỗi xảy ra khi lưu giờ.");
+      }
+    } else {
+      return ctx.reply(
+        "⚠️ Vui lòng nhập giờ từ 0 đến 23. Ví dụ: `/settime 15`",
+      );
+    }
+  }
+
+  // Nếu không có số đi kèm, hiện bảng chọn như Cách 1
+  const buttons = [];
+  for (let i = 0; i < 24; i++)
+    buttons.push({ text: `${i}h`, callback_data: `settime_${i}` });
+  const keyboard = [];
+  while (buttons.length) keyboard.push(buttons.splice(0, 4));
+
+  ctx.reply("⏰ Chọn hoặc gõ `/settime <giờ>` để đặt lịch nhận từ vựng:", {
+    reply_markup: { inline_keyboard: keyboard },
   });
 });
 
@@ -197,7 +223,7 @@ async function handleDripFeed(currentHour) {
       const userData = userRes.data() || {};
       const userSendHour = userData.sendHour || 7;
 
-      // if (userSendHour !== currentHour) continue;
+      if (userSendHour !== currentHour) continue;
 
       const {
         words,
@@ -271,9 +297,12 @@ async function handleDripFeed(currentHour) {
 app.get("/cron", async (req, res) => {
   // Authorization check (optional but recommended)
   const authHeader = req.headers.authorization;
-  // if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-  //   return res.status(401).send('Unauthorized');
-  // }
+  if (
+    process.env.CRON_SECRET &&
+    authHeader !== `Bearer ${process.env.CRON_SECRET}`
+  ) {
+    return res.status(401).send("Unauthorized");
+  }
 
   const vnHour = parseInt(
     new Date().toLocaleString("en-US", {
