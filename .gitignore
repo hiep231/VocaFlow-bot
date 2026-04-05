@@ -40,3 +40,4 @@ merge.ps1
 merged.txt
 merged-client.txt
 merged-backend.txt
+serviceAccountKey.json
