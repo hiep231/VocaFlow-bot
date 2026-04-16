@@ -209,9 +209,35 @@ bot.on("callback_query", async (ctx) => {
 // CRON LOGIC (TRIGGERED VIA HTTP)
 // ────────────────────────────────────────────────────────────────────────────
 
-async function handleDripFeed(currentHour) {
-  console.log(`⏰ Cron check tại giờ VN: ${currentHour}:00`);
+function getVNDateParts() {
+  const now = new Date();
+
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const parts = formatter.formatToParts(now);
+
+  const get = (type) => parts.find((p) => p.type === type)?.value;
+
+  return {
+    year: Number(get("year")),
+    month: Number(get("month")),
+    day: Number(get("day")),
+  };
+}
+
+async function handleDripFeed(nowMs) {
+  const readableTime = convertTime(now);
+  console.log(`⏰ Cron check tại giờ VN: ${readableTime}`);
   try {
+    const { year, month, day } = getVNDateParts(); // ✅ fix
+
+    const todayKey = `${year}-${month}-${day}`; // dùng chống duplicate
+
     const schedulesSnap = await db
       .collection("schedules")
       .where("status", "==", "active")
@@ -223,7 +249,17 @@ async function handleDripFeed(currentHour) {
       const userData = userRes.data() || {};
       const userSendHour = userData.sendHour || 7;
 
-      if (userSendHour !== currentHour) continue;
+      const targetTime = new Date(
+        `${year}-${month}-${day}T${String(userSendHour).padStart(2, "0")}:00:00+07:00`,
+      ).getTime();
+
+      const diff = nowMs - targetTime;
+
+      // ❌ ngoài window
+      if (diff < 0 || diff >= 15 * 60 * 1000) continue;
+
+      // ❌ chống duplicate
+      if (schedule.lastSentDate === todayKey) continue;
 
       const {
         words,
@@ -305,21 +341,14 @@ app.get("/cron", async (req, res) => {
       return res.status(401).send("401"); // Chỉ trả về số 401 cho nhẹ
     }
 
-    const vnTime = new Date().toLocaleString("en-US", {
-      timeZone: "Asia/Ho_Chi_Minh",
-    });
-    const formatter = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Asia/Ho_Chi_Minh",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    const now = Date.now();
 
-    const currentTime = formatter.format(new Date());
+    const readableTime = convertTime(now);
 
-    console.log(`⏰ Starting Drip-feed for hour: ${currentTime}`);
+    console.log(`⏰ Current time VN: ${readableTime}`);
+    console.log(`⏰ Current timestamp: ${now}`);
 
-    await handleDripFeed(currentTime);
+    await handleDripFeed(now);
 
     res.status(200).send("OK");
   } catch (error) {
@@ -327,6 +356,18 @@ app.get("/cron", async (req, res) => {
     res.status(500).send("ERR");
   }
 });
+
+function convertTime(ms) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+
+  return formatter.format(new Date(ms));
+}
 
 // Root route (for keep-alive or checking status)
 app.get("/", (req, res) => res.send("🤖 VocaFlow Standalone Bot is running!"));
