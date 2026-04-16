@@ -231,7 +231,7 @@ function getVNDateParts() {
 }
 
 async function handleDripFeed(nowMs) {
-  const readableTime = convertTime(now);
+  const readableTime = convertTime(nowMs);
   console.log(`⏰ Cron check tại giờ VN: ${readableTime}`);
   try {
     const { year, month, day } = getVNDateParts(); // ✅ fix
