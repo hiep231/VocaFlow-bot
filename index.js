@@ -308,11 +308,18 @@ app.get("/cron", async (req, res) => {
     const vnTime = new Date().toLocaleString("en-US", {
       timeZone: "Asia/Ho_Chi_Minh",
     });
-    const vnHour = parseInt(new Date(vnTime).getHours(), 10);
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
 
-    console.log(`⏰ Starting Drip-feed for hour: ${vnHour}`);
+    const currentTime = formatter.format(new Date());
 
-    await handleDripFeed(vnHour);
+    console.log(`⏰ Starting Drip-feed for hour: ${currentTime}`);
+
+    await handleDripFeed(currentTime);
 
     res.status(200).send("OK");
   } catch (error) {
