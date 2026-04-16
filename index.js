@@ -249,14 +249,19 @@ async function handleDripFeed(nowMs) {
       const userData = userRes.data() || {};
       const userSendHour = userData.sendHour || 7;
 
-      const targetTime = new Date(
-        `${year}-${month}-${day}T${String(userSendHour).padStart(2, "0")}:00:00+07:00`,
-      ).getTime();
+      const nowVN = new Date(
+        new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }),
+      );
 
-      const diff = nowMs - targetTime;
+      const targetTime = new Date(nowVN);
+      targetTime.setHours(userSendHour, 0, 0, 0);
+
+      const targetMs = targetTime.getTime();
+
+      const diff = nowMs - targetMs;
 
       // ❌ ngoài window
-      if (diff < 0 || diff >= 15 * 60 * 1000) continue;
+      if (diff < 0 || diff >= 14 * 60 * 1000) continue;
 
       // ❌ chống duplicate
       if (schedule.lastSentDate === todayKey) continue;
