@@ -305,6 +305,7 @@ async function handleDripFeed(nowMs) {
       batch.update(sDoc.ref, {
         processedCount: newProcessedCount,
         status: newProcessedCount >= totalWords ? "completed" : "active",
+        lastSentDate: todayKey,
       });
 
       await batch.commit();
