@@ -295,25 +295,30 @@ async function handleDripFeed(currentHour) {
 
 // Endpoint for Cron-job.org to ping every hour
 app.get("/cron", async (req, res) => {
-  // Authorization check (optional but recommended)
-  const authHeader = req.headers.authorization;
-  if (
-    process.env.CRON_SECRET &&
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    return res.status(401).send("Unauthorized");
-  }
+  try {
+    const authHeader = req.headers.authorization;
+    if (
+      process.env.CRON_SECRET &&
+      authHeader !== `Bearer ${process.env.CRON_SECRET}`
+    ) {
+      console.log("⚠️ Warning: Unauthorized cron attempt.");
+      return res.status(401).send("401"); // Chỉ trả về số 401 cho nhẹ
+    }
 
-  const vnHour = parseInt(
-    new Date().toLocaleString("en-US", {
+    const vnTime = new Date().toLocaleString("en-US", {
       timeZone: "Asia/Ho_Chi_Minh",
-      hour: "numeric",
-      hour12: false,
-    }),
-    10,
-  );
-  await handleDripFeed(vnHour);
-  res.send(`Cron executed successfully for hour ${vnHour}`);
+    });
+    const vnHour = parseInt(new Date(vnTime).getHours(), 10);
+
+    console.log(`⏰ Starting Drip-feed for hour: ${vnHour}`);
+
+    await handleDripFeed(vnHour);
+
+    res.status(200).send("OK");
+  } catch (error) {
+    console.error("❌ Cron Error:", error.message);
+    res.status(500).send("ERR");
+  }
 });
 
 // Root route (for keep-alive or checking status)
